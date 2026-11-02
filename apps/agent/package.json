@@ -10,6 +10,7 @@
     "@types/bun": "latest"
   },
   "dependencies": {
+    "e2b": "^2.62.1",
     "openai": "^7.47.0"
   }
 }
