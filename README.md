@@ -1,159 +1,69 @@
-# Turborepo starter
+# cloud-agent
 
-This Turborepo starter is maintained by the Turborepo core team.
+Part 1 of a Devin-style cloud coding agent. This Turborepo (Bun) monorepo runs an LLM agent loop with two tools, `bash` and `read_file`, against a tiny in-memory to-do app in `apps/todoapp`.
 
-## Using this example
-
-Run the following command:
-
-```sh
-npx create-turbo@latest
+```
+                         +-------------------------------+
+                         | messages[]                    |
+                         | system + user + assistant     |
+                         | + tool results  (this is the  |
+                         | agent's memory)               |
+                         +---------------+---------------+
+                                         |
+                                         v
+                         +-------------------------------+
+                         | LLM (OpenRouter)              |
+                         | sees messages and tool schemas|
+                         +---------------+---------------+
+                                         |
+                     +-------------------+-------------------+
+                     | no tool_calls                         | tool_calls
+                     v                                       v
+            print the final answer               run bash or read_file
+                                                  append each result as
+                                                  role: "tool"
+                                                  loop, up to 15 times
 ```
 
-## What's inside?
+## Setup
 
-This Turborepo includes the following packages/apps:
+From the repo root:
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `@next/eslint-plugin-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```bash
+bun install
+cp apps/agent/.env.example apps/agent/.env
 ```
 
-Without global `turbo`, use your package manager:
+Edit `apps/agent/.env` and set `OPENROUTER_API_KEY`. Bun loads that file automatically when the agent starts. `AGENT_MODEL` defaults to `google/gemini-3-flash-preview`.
 
-```sh
-cd my-turborepo
-npx turbo build
-bun exec turbo build
-bun exec turbo build
+## Run
+
+Explain the to-do app (the default task):
+
+```bash
+bun run agent
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Ask the agent to change the project:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+```bash
+bun run agent "add a DELETE /todos/:id endpoint"
 ```
 
-Without global `turbo`:
+Tool calls are printed as `[iteration N] tool: name args`. The last thing printed is the model's final answer.
 
-```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
-```
+## How it works
 
-### Develop
+`agentLoop` keeps a `messages` array. That array is the only memory: each turn sends the full history (system prompt, user task, prior assistant messages, and tool results) back to the model.
 
-To develop all apps and packages, run the following command:
+The model can request tools. Our code, not the model, runs them:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+- `bash` runs `bash -c` with `node:child_process` `spawn`, with the working directory set to `apps/todoapp`. stdout and stderr are JSON, along with the exit code. Output longer than 4000 characters keeps the first 2000 and the last 2000. A command still running after 5 seconds is killed and the tool result is the text `TIMEOUT`.
+- `read_file` reads the file with `node:fs` (not the shell), prefixes line numbers, and returns at most the first 500 lines.
 
-```sh
-cd my-turborepo
-turbo dev
-```
+Unknown tools, bad JSON arguments, and thrown tool errors are sent back as tool results so the loop can continue. The loop stops when the model replies with no tool calls, or after `MAX_ITERATIONS` (default 15).
 
-Without global `turbo`, use your package manager:
+## Layout
 
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- `apps/agent` — the agent loop (`index.ts`)
+- `apps/todoapp` — the sample project the agent explores
