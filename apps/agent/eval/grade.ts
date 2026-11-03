@@ -10,7 +10,7 @@ export function copyRepo(from: string, to: string): void {
     filter: (source) => {
       const relative = path.relative(from, source);
       const parts = relative.split(path.sep);
-      return !parts.includes("node_modules") && !parts.includes(".git");
+      return !parts.includes("node_modules") && !parts.includes(".git") && !parts.includes(".venv") && !parts.includes("venv") && !parts.includes("__pycache__");
     },
   });
 }

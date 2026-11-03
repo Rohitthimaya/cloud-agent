@@ -7,8 +7,9 @@ const root = path.resolve(import.meta.dir, "../../..");
 describe("parseTask", () => {
   test("loads the local tasks", () => {
     const tasks = loadTasks(path.join(root, "evals/tasks"));
-    expect(tasks.map((task) => task.id)).toEqual(["todo-delete", "todo-done"]);
-    expect(tasks[0]?.hidden[0]?.dest).toBe("delete.test.ts");
+    expect(tasks.map((task) => task.id)).toEqual(["pylint-dev__pylint-5859", "todo-delete", "todo-done"]);
+    expect(tasks[0]?.mode).toBe("swebench");
+    expect(tasks[1]?.hidden[0]?.dest).toBe("delete.test.ts");
   });
 
   test("turns a SWE-bench instance into a cloud task", () => {

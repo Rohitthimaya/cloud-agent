@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { agentLoop } from "../agent.ts";
@@ -18,7 +18,7 @@ const root = path.resolve(import.meta.dir, "../../..");
 
 export interface EvalReport {
   id: string;
-  mode: "local" | "cloud";
+  mode: "local" | "cloud" | "swebench";
   solved: boolean;
   gradeOnly: boolean;
   durationMs: number;
@@ -33,7 +33,9 @@ function usage(): never {
   bun run eval
   bun run eval <task-id> [task-id...]
   bun run eval --grade-only [task-id]
-  bun run eval --list`);
+  bun run eval --list
+  bun run swe:setup <instance-id>
+  bun run eval --grade-only <instance-id>`);
   process.exit(1);
 }
 
@@ -80,11 +82,23 @@ writeReports(reports);
 process.exit(failed === 0 ? 0 : 1);
 }
 
+function prepareTask(task: EvalTask): EvalTask {
+  if (!task.verify.includes("{venv}")) return task;
+  const venv = path.join(root, "evals/venvs", task.id);
+  const python = path.join(venv, "bin/python");
+  const repo = path.resolve(root, task.repo);
+  if (!existsSync(python) || !existsSync(repo)) {
+    throw new Error(`SWE-bench task ${task.id} is not set up. Run: bun run swe:setup ${task.id}`);
+  }
+  return { ...task, verify: task.verify.replaceAll("{venv}", venv) };
+}
+
 async function runTask(task: EvalTask, gradeOnlyRun: boolean): Promise<EvalReport> {
   const started = Date.now();
   try {
-    if (task.mode === "cloud") return await runCloud(task, gradeOnlyRun, started);
-    return await runLocal(task, gradeOnlyRun, started);
+    const ready = prepareTask(task);
+    if (ready.mode === "cloud") return await runCloud(ready, gradeOnlyRun, started);
+    return await runLocal(ready, gradeOnlyRun, started);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -117,7 +131,7 @@ async function runLocal(task: EvalTask, gradeOnlyRun: boolean, started: number):
     const verify = await gradeWorkspace(workspace, root, task);
     return {
       id: task.id,
-      mode: "local",
+      mode: task.mode,
       solved: isSolved(verify),
       gradeOnly: gradeOnlyRun,
       durationMs: Date.now() - started,

@@ -9,7 +9,7 @@ export interface HiddenFile {
 
 export interface EvalTask {
   id: string;
-  mode: "local" | "cloud";
+  mode: "local" | "cloud" | "swebench";
   repo: string;
   problem: string;
   verify: string;
@@ -43,7 +43,8 @@ function parseOwnTask(record: Record<string, unknown>): EvalTask {
   const repo = requiredString(record, "repo");
   const problem = requiredString(record, "problem");
   const verify = requiredString(record, "verify");
-  const mode = record.mode === "cloud" || record.mode === "local" ? record.mode : inferMode(repo);
+  const mode =
+    record.mode === "cloud" || record.mode === "local" || record.mode === "swebench" ? record.mode : inferMode(repo);
   return {
     id,
     mode,
@@ -61,7 +62,7 @@ function parseOwnTask(record: Record<string, unknown>): EvalTask {
 function parseSweBench(record: Record<string, unknown>): EvalTask {
   const repoName = requiredString(record, "repo");
   const repo = repoName.startsWith("http") || repoName.startsWith("git@") ? repoName : `https://github.com/${repoName}`;
-  const tests = stringList(record.fail_to_pass);
+  const tests = stringList(record.fail_to_pass ?? record.FAIL_TO_PASS);
   const verify = optionalString(record.verify) ?? pytestCommand(tests);
   if (!verify) {
     throw new Error(

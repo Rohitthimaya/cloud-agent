@@ -139,7 +139,15 @@ A task file in `evals/tasks` looks like this:
 
 `hidden` files are copied in only after the agent stops. `verify` is not shown to the model.
 
-The same runner accepts a [SWE-bench](https://www.swebench.com/) instance (`instance_id`, `repo`, `base_commit`, `problem_statement`, `test_patch`, `fail_to_pass`). Those run in cloud mode: clone that commit in a sandbox, apply the test patch, run the agent, then run the tests. Official SWE-bench Docker images are not included, so the instance needs a `verify` command the sandbox can run, or `fail_to_pass` entries that are pytest ids. Put the JSON file in `evals/tasks` and run `bun run eval <instance_id>`. Cloud tasks need `E2B_API_KEY` and are skipped by a plain `bun run eval`.
+One [SWE-bench Lite](https://www.swebench.com/) task is set up as `pylint-dev__pylint-5859`. Setup clones pylint at that bug's commit, applies the official test patch, and installs Python 3.10. The fail-to-pass test fails until the bug is fixed. The official solution is not included.
+
+```bash
+bun run swe:setup pylint-dev__pylint-5859
+bun run eval --grade-only pylint-dev__pylint-5859
+bun run eval pylint-dev__pylint-5859
+```
+
+`bun run eval` with no id still runs only the local todo tasks.
 
 ## Checks
 

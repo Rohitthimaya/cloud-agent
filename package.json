@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/agent/tsconfig.json",
     "test": "bun test apps/agent",
     "agent": "bun run --cwd apps/agent start",
-    "eval": "bun run --cwd apps/agent eval/run.ts"
+    "eval": "bun run --cwd apps/agent eval/run.ts",
+    "swe:setup": "bun run --cwd apps/agent eval/setup-swe.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
