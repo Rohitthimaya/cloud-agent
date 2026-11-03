@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import { agentModel, maxIterations, openRouterApiKey } from "./config.ts";
+import { withRetries } from "./retry.ts";
+import { groupToolCalls } from "./schedule.ts";
 import { tools, type Runner } from "./tools.ts";
 
 const SYSTEM_PROMPT =
@@ -58,11 +60,14 @@ export async function agentLoop(task: string, runner: Runner): Promise<string> {
   ];
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
-    const response = await client.chat.completions.create({
-      model: agentModel,
-      messages,
-      tools,
-    });
+    const response = await withRetries(
+      () => client.chat.completions.create({ model: agentModel, messages, tools }),
+      {
+        onRetry: (attempt, delayMs) => {
+          console.log(`Model request failed (${attempt}/3). Retrying in ${delayMs}ms.`);
+        },
+      },
+    );
     const message = response.choices[0]?.message;
     if (!message) return "The model returned an empty response.";
 
@@ -70,14 +75,26 @@ export async function agentLoop(task: string, runner: Runner): Promise<string> {
     const toolCalls = message.tool_calls;
     if (!toolCalls || toolCalls.length === 0) return message.content ?? "";
 
-    for (const call of toolCalls) {
-      const name = call.type === "function" ? call.function.name : "unknown";
-      const args = call.type === "function" ? call.function.arguments : "";
-      console.log(`[iteration ${iteration}] tool: ${name} ${args}`);
-      const content = await getToolResponse(runner, call);
-      messages.push({ role: "tool", tool_call_id: call.id, content });
+    const groups = groupToolCalls(toolCalls, isReadOnly);
+    for (const group of groups) {
+      for (const call of group) logTool(iteration, call);
+      const contents = await Promise.all(group.map((call) => getToolResponse(runner, call)));
+      group.forEach((call, index) => {
+        messages.push({ role: "tool", tool_call_id: call.id, content: contents[index] ?? "" });
+      });
     }
   }
 
   return `Stopped after ${maxIterations} iterations without a final answer.`;
+}
+
+function isReadOnly(call: OpenAI.Chat.Completions.ChatCompletionMessageToolCall): boolean {
+  return call.type === "function" && call.function.name === "read_file";
+}
+
+function logTool(iteration: number, call: OpenAI.Chat.Completions.ChatCompletionMessageToolCall): void {
+  const name = call.type === "function" ? call.function.name : "unknown";
+  const args = call.type === "function" ? call.function.arguments : "";
+  const shown = args.length > 500 ? `${args.slice(0, 500)}...` : args;
+  console.log(`[iteration ${iteration}] tool: ${name} ${shown}`);
 }
