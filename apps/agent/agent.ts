@@ -53,13 +53,18 @@ async function getToolResponse(
   }
 }
 
-export async function agentLoop(task: string, runner: Runner): Promise<string> {
+export async function agentLoop(
+  task: string,
+  runner: Runner,
+  options: { maxIterations?: number; systemPrompt?: string } = {},
+): Promise<string> {
+  const limit = options.maxIterations ?? maxIterations;
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: options.systemPrompt ?? SYSTEM_PROMPT },
     { role: "user", content: task },
   ];
 
-  for (let iteration = 1; iteration <= maxIterations; iteration++) {
+  for (let iteration = 1; iteration <= limit; iteration++) {
     const response = await withRetries(
       () => client.chat.completions.create({ model: agentModel, messages, tools }),
       {
@@ -85,7 +90,7 @@ export async function agentLoop(task: string, runner: Runner): Promise<string> {
     }
   }
 
-  return `Stopped after ${maxIterations} iterations without a final answer.`;
+  return `Stopped after ${limit} iterations without a final answer.`;
 }
 
 function isReadOnly(call: OpenAI.Chat.Completions.ChatCompletionMessageToolCall): boolean {

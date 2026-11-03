@@ -1,7 +1,9 @@
 import { addTodo, listTodos } from "./store";
 
+const port = Number(process.env.PORT) || 3001;
+
 Bun.serve({
-  port: 3001,
+  port,
   async fetch(req) {
     const { pathname } = new URL(req.url);
     if (req.method === "GET" && pathname === "/todos") {

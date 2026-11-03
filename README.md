@@ -112,6 +112,35 @@ After a cloud run that is allowed to publish:
 
 Local mode is for a folder you already trust. `bash` there can reach the rest of your machine. Cloud mode is the isolated path.
 
+## Did the agent solve it?
+
+Each task is a bug or a missing feature, plus a hidden test the model does not get to edit. The harness copies the repo, runs the agent, then runs the hidden test itself. The model's last message is not the score. The test exit code is.
+
+```bash
+bun run eval --list
+bun run eval --grade-only todo-delete
+bun run eval todo-delete
+bun run eval
+```
+
+`--grade-only` skips the model and grades the repo as it is, so you can see a task fail before the agent touches it. `bun run eval` runs every local task and prints `SOLVED` or `NOT SOLVED`. The full output is written to `evals/reports/latest.json`.
+
+A task file in `evals/tasks` looks like this:
+
+```json
+{
+  "id": "todo-delete",
+  "repo": "apps/todoapp",
+  "problem": "Add DELETE /todos/:id ...",
+  "hidden": ["evals/hidden/todo-delete/delete.test.ts"],
+  "verify": "bun test delete.test.ts"
+}
+```
+
+`hidden` files are copied in only after the agent stops. `verify` is not shown to the model.
+
+The same runner accepts a [SWE-bench](https://www.swebench.com/) instance (`instance_id`, `repo`, `base_commit`, `problem_statement`, `test_patch`, `fail_to_pass`). Those run in cloud mode: clone that commit in a sandbox, apply the test patch, run the agent, then run the tests. Official SWE-bench Docker images are not included, so the instance needs a `verify` command the sandbox can run, or `fail_to_pass` entries that are pytest ids. Put the JSON file in `evals/tasks` and run `bun run eval <instance_id>`. Cloud tasks need `E2B_API_KEY` and are skipped by a plain `bun run eval`.
+
 ## Checks
 
 ```bash

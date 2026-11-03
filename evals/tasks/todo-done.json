@@ -1,0 +1,10 @@
+{
+  "id": "todo-done",
+  "mode": "local",
+  "repo": "apps/todoapp",
+  "maxIterations": 25,
+  "verify": "bun test done.test.ts",
+  "verifyTimeoutMs": 20000,
+  "hidden": ["evals/hidden/todo-done/done.test.ts"],
+  "problem": "Add PATCH /todos/:id so a todo can be marked done.\n\nThe body is {\"done\": true} or {\"done\": false}.\nOn success, update that todo and return it as JSON with status 200.\nIf the id does not exist, return status 404 and JSON {\"error\":\"not found\"}.\nIf done is missing or not a boolean, return status 400 and JSON {\"error\":\"done required\"}.\nKeep GET /todos and POST /todos working.\nThe server must keep honoring process.env.PORT and default to 3001 when PORT is unset.\nDo not create or edit test files. A hidden test grades the result after you stop."
+}

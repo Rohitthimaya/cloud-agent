@@ -1,0 +1,10 @@
+{
+  "id": "todo-delete",
+  "mode": "local",
+  "repo": "apps/todoapp",
+  "maxIterations": 25,
+  "verify": "bun test delete.test.ts",
+  "verifyTimeoutMs": 20000,
+  "hidden": ["evals/hidden/todo-delete/delete.test.ts"],
+  "problem": "Add DELETE /todos/:id to this to-do server.\n\nThe id is the number in the path.\nOn success, remove that todo and return it as JSON with status 200.\nIf the id does not exist, return status 404 and JSON {\"error\":\"not found\"}.\nKeep GET /todos and POST /todos working.\nThe server must keep honoring process.env.PORT and default to 3001 when PORT is unset.\nDo not create or edit test files. A hidden test grades the result after you stop."
+}

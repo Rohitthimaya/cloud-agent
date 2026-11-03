@@ -10,6 +10,7 @@ import {
   type PublishOptions,
   type PublishResult,
 } from "../publish.ts";
+import { shellQuote } from "../shell.ts";
 import { bashResult, formatFile, type Runner } from "../tools.ts";
 
 const REPO_DIR = "/home/user/repo";
@@ -97,6 +98,19 @@ export class SandboxRunner implements Runner {
       },
       { ...options, repoDir: REPO_DIR },
     );
+  }
+
+  runCommand(
+    command: string,
+    timeoutMs = 60_000,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number | null; timedOut: boolean }> {
+    return this.exec(command, REPO_DIR, undefined, timeoutMs);
+  }
+
+  async writeRepoFile(relativePath: string, content: string): Promise<void> {
+    const resolved = resolveInside(REPO_DIR, relativePath, true);
+    await this.exec(`mkdir -p ${shellQuote(path.posix.dirname(resolved))}`, REPO_DIR);
+    await this.sandbox.files.write(resolved, content);
   }
 
   async close(): Promise<void> {
