@@ -3,10 +3,22 @@ import { CommandExitError, Sandbox, TimeoutError } from "e2b";
 import { e2bApiKey, toolTimeoutMs } from "../config.ts";
 import { applyEdit } from "../edit.ts";
 import { resolveInside } from "../paths.ts";
-import { shellQuote } from "../shell.ts";
+import {
+  gitCloneCommand,
+  publishRepository,
+  redact,
+  type PublishOptions,
+  type PublishResult,
+} from "../publish.ts";
 import { bashResult, formatFile, type Runner } from "../tools.ts";
 
 const REPO_DIR = "/home/user/repo";
+
+export interface SandboxCreateOptions {
+  token?: string;
+  branch?: string;
+  attach?: (runner: SandboxRunner) => void;
+}
 
 export class SandboxRunner implements Runner {
   private closed = false;
@@ -16,21 +28,24 @@ export class SandboxRunner implements Runner {
     private readonly timeoutMs: number,
   ) {}
 
-  static async create(repoUrl: string, attach?: (runner: SandboxRunner) => void): Promise<SandboxRunner> {
+  static async create(repoUrl: string, options: SandboxCreateOptions = {}): Promise<SandboxRunner> {
     const started = Date.now();
     const sandbox = await Sandbox.create({ apiKey: e2bApiKey });
     console.log(`Sandbox ${sandbox.sandboxId} created in ${Date.now() - started}ms`);
 
     const runner = new SandboxRunner(sandbox, toolTimeoutMs("sandbox"));
-    attach?.(runner);
+    options.attach?.(runner);
     try {
-      const clone = await runner.run(
-        `git clone ${shellQuote(repoUrl)} ${REPO_DIR}`,
-        "/home/user",
-      );
-      const result = JSON.parse(clone) as { exitCode: number | null; stderr: string };
+      const clone = gitCloneCommand(repoUrl, REPO_DIR, {
+        branch: options.branch,
+        token: options.token,
+      });
+      const result = await runner.exec(clone.command, "/home/user", clone.envs, 120_000);
+      if (result.timedOut) throw new Error("git clone timed out");
       if (result.exitCode !== 0) {
-        throw new Error(`git clone failed (exit ${result.exitCode}): ${result.stderr}`);
+        throw new Error(
+          `git clone failed (exit ${result.exitCode}): ${redact(result.stderr, options.token ?? "")}`,
+        );
       }
       console.log(`Cloned ${repoUrl} into ${REPO_DIR}`);
       return runner;
@@ -67,6 +82,23 @@ export class SandboxRunner implements Runner {
     }
   }
 
+  publish(options: Omit<PublishOptions, "repoDir">): Promise<PublishResult> {
+    return publishRepository(
+      {
+        run: async (command, cwd, envs) => {
+          const result = await this.exec(command, cwd, envs, 120_000);
+          return {
+            stdout: result.stdout,
+            stderr: result.stderr,
+            exitCode: result.timedOut ? 124 : result.exitCode,
+          };
+        },
+        writeFile: (filePath, content) => this.sandbox.files.write(filePath, content).then(() => undefined),
+      },
+      { ...options, repoDir: REPO_DIR },
+    );
+  }
+
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
@@ -80,19 +112,27 @@ export class SandboxRunner implements Runner {
   }
 
   private async run(command: string, cwd: string): Promise<string> {
+    const result = await this.exec(command, cwd);
+    if (result.timedOut) return "TIMEOUT";
+    return bashResult(result.stdout, result.stderr, result.exitCode);
+  }
+
+  private async exec(
+    command: string,
+    cwd: string,
+    envs?: Record<string, string>,
+    timeoutMs = this.timeoutMs,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number | null; timedOut: boolean }> {
     try {
-      const result = await this.sandbox.commands.run(command, {
-        cwd,
-        timeoutMs: this.timeoutMs,
-      });
-      return bashResult(result.stdout, result.stderr, result.exitCode);
+      const result = await this.sandbox.commands.run(command, { cwd, timeoutMs, envs });
+      return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode, timedOut: false };
     } catch (error) {
       if (error instanceof CommandExitError) {
-        return bashResult(error.stdout, error.stderr, error.exitCode);
+        return { stdout: error.stdout, stderr: error.stderr, exitCode: error.exitCode, timedOut: false };
       }
-      if (error instanceof TimeoutError) return "TIMEOUT";
+      if (error instanceof TimeoutError) return { stdout: "", stderr: "TIMEOUT", exitCode: 124, timedOut: true };
       const message = error instanceof Error ? error.message : String(error);
-      return bashResult("", message, 1);
+      return { stdout: "", stderr: message, exitCode: 1, timedOut: false };
     }
   }
 }

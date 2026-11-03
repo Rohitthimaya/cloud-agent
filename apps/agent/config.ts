@@ -11,6 +11,7 @@ function positiveInt(name: string, fallback: number): number {
 
 export const openRouterApiKey = process.env.OPENROUTER_API_KEY ?? "";
 export const e2bApiKey = process.env.E2B_API_KEY ?? "";
+export const githubToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "";
 export const agentModel = process.env.AGENT_MODEL || "google/gemini-3-flash-preview";
 export const maxIterations = positiveInt("MAX_ITERATIONS", 15);
 

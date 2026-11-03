@@ -5,7 +5,7 @@ import { groupToolCalls } from "./schedule.ts";
 import { tools, type Runner } from "./tools.ts";
 
 const SYSTEM_PROMPT =
-  "You are a helpful coding assistant. You are working inside a git repository. Use read_file to inspect code, edit_file for an exact unique search-and-replace, and bash to run commands. Verify your work before you finish.";
+  "You are a helpful coding assistant. You are working inside a git repository. Use read_file to inspect code, edit_file for an exact unique search-and-replace, and bash to run commands. Verify your work before you finish. Do not commit, push, or change git remotes. Stop calling tools when the task is done. A pull request is opened for you afterward.";
 
 const client = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
