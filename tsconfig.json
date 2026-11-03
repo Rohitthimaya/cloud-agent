@@ -13,5 +13,5 @@
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["apps/agent/**/*.ts", "apps/todoapp/src/**/*.ts", "evals/**/*.ts"]
+  "include": ["apps/agent/**/*.ts", "apps/web/**/*.ts", "apps/todoapp/src/**/*.ts", "evals/**/*.ts"]
 }

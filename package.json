@@ -11,7 +11,8 @@
     "test": "bun test apps/agent",
     "agent": "bun run --cwd apps/agent start",
     "eval": "bun run --cwd apps/agent eval/run.ts",
-    "swe:setup": "bun run --cwd apps/agent eval/setup-swe.ts"
+    "swe:setup": "bun run --cwd apps/agent eval/setup-swe.ts",
+    "web": "bun run --cwd apps/web start"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",

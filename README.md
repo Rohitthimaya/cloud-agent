@@ -32,6 +32,14 @@ print the answer and the pull request URL
 kill the sandbox  (also on Ctrl+C)
 ```
 
+## Website
+
+```bash
+bun run web
+```
+
+Open http://127.0.0.1:8787. The home page is the architecture. SWE test runs `pylint-dev__pylint-5859` and shows solved or not. Build takes a sentence, starts the app, and gives a preview link on this machine.
+
 ## Setup
 
 From the repo root:

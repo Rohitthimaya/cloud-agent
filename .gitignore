@@ -17,6 +17,7 @@ coverage
 evals/reports/
 evals/work/
 evals/venvs/
+apps/web/generated/
 
 # Turbo
 .turbo
