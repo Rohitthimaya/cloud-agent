@@ -3,6 +3,7 @@ import type OpenAI from "openai";
 export interface Runner {
   bash(command: string): Promise<string>;
   readFile(path: string): Promise<string>;
+  editFile(path: string, oldString: string, newString: string): Promise<string>;
   close(): Promise<void>;
 }
 
@@ -35,6 +36,24 @@ export const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           path: { type: "string", description: "File path relative to the repository root" },
         },
         required: ["path"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "edit_file",
+      description:
+        "Replace one exact occurrence of old_string with new_string in a repository file. old_string must match exactly once, including whitespace. Fails if the text is missing or appears more than once.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "File path relative to the repository root" },
+          old_string: { type: "string", description: "Exact text to replace" },
+          new_string: { type: "string", description: "Replacement text" },
+        },
+        required: ["path", "old_string", "new_string"],
         additionalProperties: false,
       },
     },

@@ -1,13 +1,12 @@
 import path from "node:path";
 import { CommandExitError, Sandbox, TimeoutError } from "e2b";
 import { e2bApiKey, toolTimeoutMs } from "../config.ts";
+import { applyEdit } from "../edit.ts";
+import { resolveInside } from "../paths.ts";
+import { shellQuote } from "../shell.ts";
 import { bashResult, formatFile, type Runner } from "../tools.ts";
 
 const REPO_DIR = "/home/user/repo";
-
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'\\''`)}'`;
-}
 
 export class SandboxRunner implements Runner {
   private closed = false;
@@ -46,9 +45,26 @@ export class SandboxRunner implements Runner {
   }
 
   async readFile(filePath: string): Promise<string> {
-    const resolved = filePath.startsWith("/") ? filePath : path.posix.join(REPO_DIR, filePath);
-    const content = await this.sandbox.files.read(resolved, { format: "text" });
-    return formatFile(content);
+    try {
+      const resolved = resolveInside(REPO_DIR, filePath, true);
+      const content = await this.sandbox.files.read(resolved, { format: "text" });
+      return formatFile(content);
+    } catch (error) {
+      return errorText(error);
+    }
+  }
+
+  async editFile(filePath: string, oldString: string, newString: string): Promise<string> {
+    try {
+      const resolved = resolveInside(REPO_DIR, filePath, true);
+      const content = await this.sandbox.files.read(resolved, { format: "text" });
+      const applied = applyEdit(content, oldString, newString);
+      if (!applied.ok) return `Error: ${applied.error}`;
+      await this.sandbox.files.write(resolved, applied.content);
+      return `Edited ${path.posix.relative(REPO_DIR, resolved)}`;
+    } catch (error) {
+      return errorText(error);
+    }
   }
 
   async close(): Promise<void> {
@@ -79,4 +95,9 @@ export class SandboxRunner implements Runner {
       return bashResult("", message, 1);
     }
   }
+}
+
+function errorText(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return `Error: ${message}`;
 }

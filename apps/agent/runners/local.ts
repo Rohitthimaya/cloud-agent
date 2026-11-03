@@ -1,7 +1,9 @@
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { toolTimeoutMs } from "../config.ts";
+import { applyEdit } from "../edit.ts";
+import { resolveInside } from "../paths.ts";
 import { bashResult, formatFile, type Runner } from "../tools.ts";
 
 export class LocalRunner implements Runner {
@@ -45,11 +47,33 @@ export class LocalRunner implements Runner {
   }
 
   async readFile(filePath: string): Promise<string> {
-    const resolved = path.resolve(this.cwd, filePath);
-    return formatFile(readFileSync(resolved, "utf8"));
+    try {
+      const resolved = resolveInside(this.cwd, filePath);
+      return formatFile(readFileSync(resolved, "utf8"));
+    } catch (error) {
+      return errorText(error);
+    }
+  }
+
+  async editFile(filePath: string, oldString: string, newString: string): Promise<string> {
+    try {
+      const resolved = resolveInside(this.cwd, filePath);
+      const content = readFileSync(resolved, "utf8");
+      const applied = applyEdit(content, oldString, newString);
+      if (!applied.ok) return `Error: ${applied.error}`;
+      writeFileSync(resolved, applied.content);
+      return `Edited ${path.relative(this.cwd, resolved)}`;
+    } catch (error) {
+      return errorText(error);
+    }
   }
 
   close(): Promise<void> {
     return Promise.resolve();
   }
+}
+
+function errorText(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return `Error: ${message}`;
 }

@@ -3,7 +3,7 @@ import { agentModel, maxIterations, openRouterApiKey } from "./config.ts";
 import { tools, type Runner } from "./tools.ts";
 
 const SYSTEM_PROMPT =
-  "You are a helpful coding assistant. You are working inside a git repository. Use the tools to explore and change files. Verify your work by running commands.";
+  "You are a helpful coding assistant. You are working inside a git repository. Use read_file to inspect code, edit_file for an exact unique search-and-replace, and bash to run commands. Verify your work before you finish.";
 
 const client = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -36,6 +36,13 @@ async function getToolResponse(
     if (call.function.name === "read_file") {
       if (typeof args.path !== "string") return "Error: read_file requires a string path";
       return await runner.readFile(args.path);
+    }
+    if (call.function.name === "edit_file") {
+      if (typeof args.path !== "string") return "Error: edit_file requires a string path";
+      if (typeof args.old_string !== "string" || typeof args.new_string !== "string") {
+        return "Error: edit_file requires string old_string and new_string";
+      }
+      return await runner.editFile(args.path, args.old_string, args.new_string);
     }
     return `Error: unknown tool "${call.function.name}"`;
   } catch (error) {
